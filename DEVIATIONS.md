@@ -1401,6 +1401,14 @@ eğitimin FPGA'da mı yazılım modelinde mi yapıldığı metinde yazmıyor. NI
     doğrulandı. (a) `--guncelleme kesir --kesir 3 --mu 5`: ağırlığa 3 alt bit eklenir, adım ~31/8 LSB, çözünürlük 5 bit;
     (b) `--guncelleme sr --mu 2`: katman ölçekli gerçek stokastik yuvarlama. İkisi de golden/RTL'den sapma (yalnızca
     teşhis; `hizli_model.GUNCELLEME` varsayılanı "shao", `kontrol_hizli.py` 6/6 PASS).
+  - Adım 3 sonucu (10.11 gece): **ikisi de eşiğin altında, ikisi de tabandan kötü** `[Ölçüldü]`. 10. epoch testi: kesir
+    %17,05, sr %21,46 (taban %26,17). İkisinde de desen aynı: 2.–4. epoch ~%25–29, sonra gerileme. → "Seyrek güncelleme
+    tek neden" hipotezi doğrulanmadı; güncellemeyi yoğunlaştırmak kötüleştirdi.
+  - Ek ölçüm (eğitimsiz, bir adım, başlangıç ağırlıkları): katman başına adım büyüklüğü ||ΔW||/||W||. vgg16like: shao
+    m_u 2 5e-4–1,2e-2; sr 3,6e-3–1,5e-2; kesir 1,5e-3–1,4e-2; float SGD lr 0,01 1,5e-5–6e-5 (int 30–200 kat büyük;
+    yoğun varyantlar daha da büyük). vggsmall7 (öğreniyor): shao m_u 5 1,4e-2–1e-1, float 2,5e-4–3,5e-3 (oran 25–130
+    kat). İki ağda int/float oranı benzer → tek başına ayırt edici değil; derin ağın aşırı büyük adıma daha duyarlı
+    olması bir çıkarım, ölçülmedi. Sıradaki deney (adım küçültme, örn. `--kesir 7`) plan dışı, Ego'nun kararına bırakıldı.
 
 ### D108 — Table II'nin GOPS'u: RTL'in komut başına çevrim modeli, tepe ve etkin GOPS (Faz 5)
 - **Ne:** `final/models/sistem/gops_modeli.py`. Bir eğitim adımının çevrimi = FSM'in komut listesi (golden'ın
