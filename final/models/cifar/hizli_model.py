@@ -25,6 +25,8 @@ GRUP = 16                  # D76: grup = 16 kanal (0: bütün tensör tek grup �
 YUVARLAMA_AE = "alg1"      # D33: a ve e için Alg. 1 | "round": NITI'nin RoundShift'i (ablasyon)
 ALT_YARI = "shao"          # SRU-a1: Alg. 1 satır 6'nın alt yarısı. "shao" = f[bp/2, 0] (golden/RTL, Shao'nun yazımı)
                            # | "niti" = f[bp/2-1, 0] (NITI Alg. 3; ablasyon, 06.11)
+GUNCELLEME = "shao"        # ağırlık güncellemesi: "shao" (golden/RTL) | "sr" | "kesir" (teşhis deneyi, 10.11; _guncelle)
+KESIR = 3                  # "kesir" için ağırlığın ek alt bit sayısı
 
 _IKI_KUVVET = None
 
@@ -238,10 +240,37 @@ def egitim_adimi(katmanlar, A0, s_a0, y, m_u):
             g8, G = sru_katman(Gw.t().contiguous().view(Gw.shape[1], Gw.shape[0]), m_u)
             g8 = g8.t()
         else:
-            g8, G = sru_wg(conv_wg(X, El, k.s, k.p), m_u)
+            Gw = conv_wg(X, El, k.s, k.p)
+            g8, G = sru_wg(Gw, m_u)
         G_geri[("WG", li + 1)] = G
-        k.W = (k.W - g8).clamp(-127, 127)                       # D41
+        _guncelle(k, Gw, g8, m_u)
     return dict(A=A, E=E, s_a=s_a, G_ileri=G_ileri, G_geri=G_geri)
+
+
+# ----------------------------------------------------------------------------
+# Ağırlık güncellemesi. "shao" = golden/RTL (D41). Diğerleri yalnızca teşhis deneyi (10.11, Adım 3):
+#   "sr"    : g8 yerine Gw'nin katman ölçekli (2^G) gerçek stokastik yuvarlaması, m_u bit (küçük gradyanlar
+#             olasılıkla ±1 alır; beklenen değer yansız). Ağırlık int8 kalır.
+#   "kesir" : ağırlığın KESIR bitlik alt kısmı ayrıca tutulur (W_k = W * 2^KESIR); g8 W_k'den çıkarılır,
+#             ileri/geri geçişte W = round(W_k / 2^KESIR) kullanılır (adım büyüklüğü m_u'dan ayrılır).
+# ----------------------------------------------------------------------------
+def _guncelle(k, Gw, g8, m_u):
+    if GUNCELLEME == "shao":
+        k.W = (k.W - g8).clamp(-127, 127)                       # D41
+        return
+    if GUNCELLEME == "sr":
+        G = max(0, int(B(Gw.abs().max().view(1)).item()) - m_u)
+        g = Gw.double() / 2.0 ** G
+        g8 = (torch.floor(g.abs() + torch.rand_like(g)) * torch.sign(g)).clamp(-(2 ** m_u - 1), 2 ** m_u - 1).long()
+        k.W = (k.W - g8).clamp(-127, 127)
+        return
+    if GUNCELLEME == "kesir":
+        if getattr(k, "Wk", None) is None:
+            k.Wk = k.W.long() << KESIR
+        k.Wk = (k.Wk - g8).clamp(-(127 << KESIR), 127 << KESIR)
+        k.W = ((k.Wk + (1 << (KESIR - 1))) >> KESIR).clamp(-127, 127)
+        return
+    raise ValueError(GUNCELLEME)
 
 
 def _relu_once(katmanlar, li):

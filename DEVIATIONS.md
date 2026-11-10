@@ -1378,6 +1378,29 @@ eğitimin FPGA'da mı yazılım modelinde mi yapıldığı metinde yazmıyor. NI
   %76,45, eğitim %74,73 (1. epoch %36,1; 10. %68,2; 20. %71,8). Önceden belirlenen eşik ≥ %70 → çerçeve sağlam
   (NITI'nin 200 epoch sonucu %90,7). Sonuç: VGG16-like'ın ~%25'i çerçevedeki bir hatadan değil, 14 katmanlı BN'siz ağın
   bu ayarlarla eğitilmesinden. `[Ölçüldü]` `sonuc/niti_vggsmall7_b128/egri.csv` (30. epoch'ta durduruldu, durum.pt saklı).
+- **07.11 düzeltmesi:** Yukarıdaki "float da 80 adımda öğrenmedi → sorun int'e özgü değil" çıkarımı tutmadı. Aynı ağ float32
+  ile 30 epoch'ta test %64,10 (ilk 4 epoch şans düzeyinde, ~800. adımdan sonra kalkıyor); int aynı noktada %22,92
+  `[Ölçüldü]` (`final/SONUCLAR.md`). Ağ eğitilebilir; tıkanma int8 eğitiminde.
+- **10.11 teşhisi (danışman isteğiyle; karar değişmedi, ölçüm):** `final/models/cifar/teshis_agirlik.py`, `teshis_gradyan.py`.
+  - Adım 1 (başlangıç ↔ 200. epoch ağırlıkları): 9–13. katmanlar başlangıçla kosinüs 0,996–0,999 (float 30 epoch'ta
+    ~0,986), yani derin orta katmanlar pratikte hiç eğitilmemiş. 1. katmanın %22'si ±127'de (başta %0,6) `[Ölçüldü]`.
+  - Adım 2 (aynı ağırlık + batch, int8 gradyanı ↔ aynı ağırlıkların float autograd gradyanı, 4 × 256 görüntü):
+    | | hata yönü cos_E (1. → son) | uygulanan güncellemenin yönü cos_g8 | güncellenen ağırlık oranı/adım |
+    |---|---|---|---|
+    | vggsmall7, m_u 5, başlangıç (öğreniyor) | 0,50 → 1,00 | 0,78–0,98 | %24–87 |
+    | vggsmall7, 30. epoch | 0,66–0,97 | 0,78–0,94 | %5–89 |
+    | vgg16like, m_u 2, başlangıç | 0,49 → 1,00 | 0,26–0,38 (son katman 0,71) | 2–13. katmanda %0,2–2,8 |
+    | vgg16like, 200. epoch | 0,35–0,89 | 8–13. katmanda 0,23–0,29 | 8–13. katmanda < %0,05 |
+    `[Ölçüldü]`. Hata yönünün derinlikle bozulması öğrenen ağda da benzer (başlangıçta 1. katmanda 0,50) → birincil neden
+    değil. Ayıran fark güncelleme: m_u bitlik yuvarlama katman genelindeki en büyük gradyana göre ölçekli (GMS ortak G);
+    m_u 2'de ondan ~4 kat küçük gradyanlar 0'a gider, Alg. 1'in yuvarlaması küçük değerleri yukarı almaz. D102'deki
+    ikilem: m_u 5'te güncelleme yoğun ama adım çok büyük (en büyük eleman 31 LSB; ağ dağılıyor), m_u 2'de adım uygun ama
+    güncelleme seyrek (derin katmanlar donuyor). Tek m_u hem çözünürlüğü hem adım büyüklüğünü belirliyor `[Çıkarım]`.
+    100 adımlık net hareket oranı |ΣΔW|/Σ|ΔW| ayırt edici çıkmadı (öğrenen vggsmall7'de de 0,03–0,22).
+  - Adım 3 (koşuyor): iki hedefli 10 epoch koşusu, eşik önceden: 10. epoch testi ≥ %41 (taban %26,17 + 15) → neden
+    doğrulandı. (a) `--guncelleme kesir --kesir 3 --mu 5`: ağırlığa 3 alt bit eklenir, adım ~31/8 LSB, çözünürlük 5 bit;
+    (b) `--guncelleme sr --mu 2`: katman ölçekli gerçek stokastik yuvarlama. İkisi de golden/RTL'den sapma (yalnızca
+    teşhis; `hizli_model.GUNCELLEME` varsayılanı "shao", `kontrol_hizli.py` 6/6 PASS).
 
 ### D108 — Table II'nin GOPS'u: RTL'in komut başına çevrim modeli, tepe ve etkin GOPS (Faz 5)
 - **Ne:** `final/models/sistem/gops_modeli.py`. Bir eğitim adımının çevrimi = FSM'in komut listesi (golden'ın

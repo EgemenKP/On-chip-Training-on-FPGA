@@ -183,11 +183,16 @@ def main():
     ap.add_argument("--test_batch", type=int, default=500, help="test batch'i (int: giriş ölçeği batch başına, D23)")
     ap.add_argument("--log", default="", help="çıktıyı bu dosyaya yaz (konsolsuz pythonw koşusu için)")
     ap.add_argument("--isci", type=int, default=2, help="veri yükleyici işçi sayısı (her biri ~0,76 GB RAM, 05.11)")
+    ap.add_argument("--guncelleme", default="shao", choices=["shao", "sr", "kesir"],
+                    help="ağırlık güncellemesi (hizli_model._guncelle); sr/kesir yalnızca teşhis deneyi (10.11)")
+    ap.add_argument("--kesir", type=int, default=3, help="--guncelleme kesir: ağırlığın ek alt bit sayısı")
+    ap.add_argument("--dur", type=int, default=0, help=">0: takvim --epoch'a göre kalır, bu kadar epoch sonra durur")
     a = ap.parse_args()
     if a.log:     # konsolsuz (pythonw) koşu için: çıktı ve hatalar dosyaya
         import sys
         sys.stdout = sys.stderr = open(a.log, "a", buffering=1, encoding="utf-8")
     H.GRUP, H.DOYMA, H.YUVARLAMA_AE, H.ALT_YARI = a.grup, a.doyma, a.ae, a.alt
+    H.GUNCELLEME, H.KESIR = a.guncelleme, a.kesir
     torch.backends.cudnn.allow_tf32 = False
     torch.backends.cuda.matmul.allow_tf32 = False
     os.makedirs(a.cikti, exist_ok=True)
@@ -288,6 +293,8 @@ def main():
         torch.save(d, durum_yolu + ".gecici")
         os.replace(durum_yolu + ".gecici", durum_yolu)
         print(f"epoch {ep + 1}/{a.epoch}: eğitim {100.0 * dogru / n:.2f}%, test {td:.2f}%, {sure:.0f} s, m_u {mu}", flush=True)
+        if a.dur and ep + 1 >= a.dur:
+            break
     kayit.close()
 
 
