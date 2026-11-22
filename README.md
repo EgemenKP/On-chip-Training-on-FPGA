@@ -1,4 +1,4 @@
-# ProjeWithOmer
+# On-Chip-Training
 KNK DEVIATIONS VE TASKS BURAYA
 
 ## Güncel durum (06.11.2026)
