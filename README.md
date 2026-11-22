@@ -50,5 +50,4 @@ Kararlar ve makaleden sapmalar: `DEVIATIONS.md`
 | `rtl/sistem/` | Master Controller (FSM), komut yürütücüsü, PE motoru, bellek, üst modül ve tam sistem testleri (Adım 4) |
 | `models/` | Python golden modelleri ve test vektörleri (`models/sistem/`: tam sistem) |
 
-Her `rtl/` klasöründeki `run_sim.tcl` o klasörün testlerini Vivado'da çalıştırır, örneğin:
-`source C:/ProjeWithOmer-main/rtl/sistem/run_sim.tcl`
+Her `rtl/` klasöründeki `run_sim.tcl` o klasörün testlerini Vivado'da çalıştırır.
