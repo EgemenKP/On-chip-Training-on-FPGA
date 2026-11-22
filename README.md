@@ -1,6 +1,4 @@
 # On-Chip-Training
-KNK DEVIATIONS VE TASKS BURAYA
-
 ## Güncel durum (06.11.2026)
 - **Donanım (`final/rtl/dizi/`):** Shao'nun 16×16 dizili sistemi; 6 test ağında (ag1–ag6) golden'la bit bit aynı
   (`tb_sistem_dizi` 65.142/65.142, 419.000 çevrim). VGG ölçeği parametreler (512 kanal, batch 256, 15 katman, D103).
